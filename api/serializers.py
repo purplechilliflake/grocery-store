@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import CustomUser, Product, WishlistItem, Cart, CartItem
+from .models import CustomUser, Product, WishlistItem, Cart, CartItem, Order, OrderItem
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -80,3 +80,19 @@ class AddToCartSerializer(serializers.Serializer):
         except Product.DoesNotExist:
             raise serializers.ValidationError("Product not found.")
         return value
+    
+class OrderItemSerializer(serializers.ModelSerializer):
+    product = ProductSerializer(read_only=True)
+
+    class Meta:
+        model = OrderItem
+        fields = ['id', 'product', 'price_at_purchase', 'quantity']
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True, read_only=True)
+    user = serializers.StringRelatedField() # Display the username
+
+    class Meta:
+        model = Order
+        fields = ['id', 'user', 'created_at', 'total_paid', 'items']

@@ -2,9 +2,10 @@ from rest_framework import generics, viewsets, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
-from .models import CustomUser, Product, WishlistItem, CartItem, Cart
-from .serializers import UserSerializer, ProductSerializer, WishlistItemSerializer, AddWishlistItemSerializer, CartSerializer, AddToCartSerializer
+from .models import CustomUser, Product, WishlistItem, CartItem, Cart, Order, OrderItem
+from .serializers import UserSerializer, ProductSerializer, WishlistItemSerializer, AddWishlistItemSerializer, CartSerializer, AddToCartSerializer, OrderSerializer
 from .permissions import IsStoreManager
+from django.db import transaction 
 
 class RegisterView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
@@ -89,3 +90,43 @@ class CartView(generics.GenericAPIView):
             return Response(status=status.HTTP_204_NO_CONTENT)
         except (Cart.DoesNotExist, CartItem.DoesNotExist):
             return Response({"error": "Item not in cart."}, status=status.HTTP_404_NOT_FOUND)
+        
+class CheckoutView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic 
+    def post(self, request, *args, **kwargs):
+        try:
+            cart = Cart.objects.get(user=request.user)
+        except Cart.DoesNotExist:
+            return Response({"error": "Cart not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        cart_items = cart.items.all()
+        if not cart_items:
+            return Response({"error": "Your cart is empty."}, status=status.HTTP_400_BAD_REQUEST)
+
+        grand_total = sum(item.quantity * item.product.price for item in cart_items)
+
+        for item in cart_items:
+            if item.product.stock_count < item.quantity:
+                return Response(
+                    {"error": f"Not enough stock for {item.product.name}. Available: {item.product.stock_count}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        order = Order.objects.create(user=request.user, total_paid=grand_total)
+
+        for item in cart_items:
+            OrderItem.objects.create(
+                order=order,
+                product=item.product,
+                price_at_purchase=item.product.price,
+                quantity=item.quantity
+            )
+            item.product.stock_count -= item.quantity
+            item.product.save()
+        
+        cart.items.all().delete()
+
+        order_serializer = OrderSerializer(order)
+        return Response(order_serializer.data, status=status.HTTP_201_CREATED)
