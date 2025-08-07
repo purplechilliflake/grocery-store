@@ -8,7 +8,8 @@ from .views import (
     AddToWishlistView,
     RemoveFromWishlistView,
     CartView,
-    CheckoutView
+    CheckoutView,
+    SalesDataView
 )
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -28,5 +29,6 @@ urlpatterns = [
     path('wishlist/remove/<int:pk>/', RemoveFromWishlistView.as_view(), name='wishlist-remove'),
     path('cart/', CartView.as_view(), name='cart-detail'),
     path('checkout/', CheckoutView.as_view(), name='checkout'),
+    path('sales-report/', SalesDataView.as_view(), name='sales-report'),
     path('', include(router.urls)),
 ]

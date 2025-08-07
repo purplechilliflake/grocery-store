@@ -96,3 +96,12 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = ['id', 'user', 'created_at', 'total_paid', 'items']
+
+class SalesDataSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    product_name = serializers.CharField()
+    product_category = serializers.CharField(source='category')
+    total_quantity_sold = serializers.IntegerField()
+
+    class Meta:
+        fields = ['product_id', 'product_name', 'product_category', 'total_quantity_sold']

@@ -3,9 +3,10 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 from .models import CustomUser, Product, WishlistItem, CartItem, Cart, Order, OrderItem
-from .serializers import UserSerializer, ProductSerializer, WishlistItemSerializer, AddWishlistItemSerializer, CartSerializer, AddToCartSerializer, OrderSerializer
+from .serializers import UserSerializer, ProductSerializer, WishlistItemSerializer, AddWishlistItemSerializer, CartSerializer, AddToCartSerializer, OrderSerializer, SalesDataSerializer
 from .permissions import IsStoreManager
 from django.db import transaction 
+from django.db.models import Sum
 
 class RegisterView(generics.CreateAPIView):
     queryset = CustomUser.objects.all()
@@ -130,3 +131,25 @@ class CheckoutView(generics.GenericAPIView):
 
         order_serializer = OrderSerializer(order)
         return Response(order_serializer.data, status=status.HTTP_201_CREATED)
+    
+class SalesDataView(generics.ListAPIView):
+    serializer_class = SalesDataSerializer
+    permission_classes = [IsStoreManager] 
+    filter_backends = [OrderingFilter]
+    ordering_fields = ['total_quantity_sold']
+
+    def get_queryset(self):
+        queryset = Product.objects.all().annotate(
+            total_quantity_sold=Sum('orderitem__quantity', default=0)
+        ).values(
+            'id', 
+            'name', 
+            'category',
+            'total_quantity_sold'
+        ).order_by('-total_quantity_sold') 
+
+        for item in queryset:
+            item['product_id'] = item.pop('id')
+            item['product_name'] = item.pop('name')
+
+        return queryset
