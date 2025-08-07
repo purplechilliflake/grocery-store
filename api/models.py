@@ -19,6 +19,7 @@ class Product(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     stock_count = models.PositiveIntegerField()
     image_url = models.ImageField(upload_to='products/', null=True, blank=True)
+    popularity = models.PositiveIntegerField(default=0, help_text = "Increments every time when product is purchased")
 
     def __str__(self):
         return self.name
