@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import CustomUser, Product, WishlistItem
+from .models import CustomUser, Product, WishlistItem, Cart, CartItem
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -43,3 +43,40 @@ class AddWishlistItemSerializer(serializers.ModelSerializer):
         
         wishlist_item, created = WishlistItem.objects.get_or_create(user=user, product_id=product_id)
         return wishlist_item
+
+class CartItemSerializer(serializers.ModelSerializer):
+    product = ProductSerializer(read_only=True)
+    sub_total = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CartItem
+        fields = ['id', 'product', 'quantity', 'sub_total']
+    
+    def get_sub_total(self, obj):
+        return obj.quantity * obj.product.price
+
+
+class CartSerializer(serializers.ModelSerializer):
+    items = CartItemSerializer(many=True, read_only=True)
+    grand_total = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Cart
+        fields = ['id', 'user', 'items', 'grand_total']
+
+    def get_grand_total(self, obj):
+        return sum(item.quantity * item.product.price for item in obj.items.all())
+
+
+class AddToCartSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    quantity = serializers.IntegerField(min_value=1)
+
+    def validate_product_id(self, value):
+        try:
+            product = Product.objects.get(id=value)
+            if product.stock_count < self.initial_data['quantity']:
+                raise serializers.ValidationError("Not enough stock available.")
+        except Product.DoesNotExist:
+            raise serializers.ValidationError("Product not found.")
+        return value
